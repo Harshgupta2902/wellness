@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, ArrowLeft, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { ArrowLeft, Sparkles } from "lucide-react";
 import { createTemplate } from "@/actions/assessment-builder";
 
 export default function NewTemplatePage() {
@@ -35,8 +36,8 @@ export default function NewTemplatePage() {
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-3">
           <Link href="/admin" className="flex items-center gap-2">
-            <Heart className="w-7 h-7 text-indigo-600" fill="currentColor" />
-            <span className="text-lg font-bold text-gray-900">Manovyatha</span>
+            <Image src="/logo.png" alt="Manovyatha" width={28} height={28} />
+            <span className="text-lg font-bold text-[#022932]">Manovyatha</span>
           </Link>
           <span className="text-gray-300">/</span>
           <span className="text-sm text-gray-500">New Template</span>

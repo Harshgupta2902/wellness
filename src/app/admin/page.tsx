@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  Heart,
   Building2,
   ClipboardList,
   Plus,
@@ -77,8 +77,8 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Heart className="w-8 h-8 text-indigo-600 animate-pulse mx-auto mb-3" fill="currentColor" />
-          <p className="text-gray-400 text-sm">Loading dashboard...</p>
+          <Image src="/logo.png" alt="Manovyatha" width={32} height={32} className="mx-auto mb-3 animate-pulse" />
+          <p className="text-[#5b7a80] text-sm">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -90,9 +90,9 @@ export default function AdminDashboard() {
       <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Heart className="w-7 h-7 text-indigo-600" fill="currentColor" />
-            <span className="text-lg font-bold text-gray-900">Manovyatha</span>
-            <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white text-[10px] font-bold uppercase tracking-wide">
+            <Image src="/logo.png" alt="Manovyatha" width={28} height={28} />
+            <span className="text-lg font-bold text-[#022932]">Manovyatha</span>
+            <span className="px-2.5 py-1 rounded-full bg-[#022932] text-white text-[10px] font-bold uppercase tracking-wide">
               Admin
             </span>
           </div>

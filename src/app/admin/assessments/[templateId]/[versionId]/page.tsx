@@ -3,8 +3,8 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  Heart,
   ArrowLeft,
   Plus,
   Check,
@@ -128,7 +128,7 @@ export default function AssessmentBuilderPage({
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Heart className="w-8 h-8 text-indigo-600 animate-pulse" fill="currentColor" />
+        <Image src="/logo.png" alt="Loading" width={32} height={32} className="animate-pulse" />
       </div>
     );
   }
@@ -140,8 +140,8 @@ export default function AssessmentBuilderPage({
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/admin" className="flex items-center gap-2">
-              <Heart className="w-7 h-7 text-indigo-600" fill="currentColor" />
-              <span className="text-lg font-bold text-gray-900">Manovyatha</span>
+              <Image src="/logo.png" alt="Manovyatha" width={28} height={28} />
+              <span className="text-lg font-bold text-[#022932]">Manovyatha</span>
             </Link>
             <span className="text-gray-300">/</span>
             <span className="text-sm text-gray-500">Assessment Builder</span>

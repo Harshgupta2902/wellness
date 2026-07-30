@@ -1,345 +1,189 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  Heart,
-  ChevronRight,
-  ChevronLeft,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
-import {
-  questions,
-  openEndedQuestions,
-  likertOptions,
-  categories,
-} from "@/data/questions";
-import { calculateFullAssessment } from "@/lib/scoring";
-import { saveAssessment } from "@/lib/storage";
+import Image from "next/image";
+import { ChevronRight, ChevronLeft, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { getActiveAssessment, submitAssessment } from "@/actions/assessments";
+import { getSession } from "@/actions/auth";
 
-type Step = "info" | "questions" | "openended" | "results";
+type Step = "login-check" | "questions" | "results";
 
-interface PersonalInfo {
+interface CategoryData {
+  id: string;
   name: string;
-  email: string;
-  age: string;
-  department: string;
-  designation: string;
-  experience: string;
-  workMode: string;
+  weight: number;
+  sort_order: number;
+}
+
+interface QuestionData {
+  id: string;
+  category_id: string;
+  question_text: string;
+  question_type: string;
+  is_required: boolean;
+  is_reverse_scored: boolean;
+  sort_order: number;
+  question_options: { id: string; label: string; value: number; sort_order: number }[];
+}
+
+interface ResultData {
+  overallScore: number;
+  riskLevel: string;
+  categoryScores: { category: string; percentage: number }[];
 }
 
 export default function AssessmentPage() {
-  const [step, setStep] = useState<Step>("info");
-  const [personalInfo, setPersonalInfo] = useState<PersonalInfo>({
-    name: "",
-    email: "",
-    age: "",
-    department: "",
-    designation: "",
-    experience: "",
-    workMode: "",
-  });
+  const [step, setStep] = useState<Step>("login-check");
+  const [versionId, setVersionId] = useState<string>("");
+  const [categories, setCategories] = useState<CategoryData[]>([]);
+  const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [currentCategory, setCurrentCategory] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, number>>({});
-  const [textAnswers, setTextAnswers] = useState<Record<number, string>>({});
-  const [results, setResults] = useState<ReturnType<
-    typeof calculateFullAssessment
-  > | null>(null);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [results, setResults] = useState<ResultData | null>(null);
+  const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const currentCategoryName = categories[currentCategory];
-  const categoryQuestions = questions.filter(
-    (q) => q.category === currentCategoryName
-  );
+  useEffect(() => {
+    async function load() {
+      const session = await getSession();
+      if (!session || session.role !== "employee") {
+        setError("Please login as an employee to take the assessment.");
+        setStep("login-check");
+        return;
+      }
 
-  const handleLikertAnswer = (questionId: number, value: number) => {
+      const result = await getActiveAssessment();
+      if (!result.success || !result.data) {
+        setError(result.message || "No active assessment available.");
+        return;
+      }
+
+      setVersionId(result.data.versionId);
+      setCategories(result.data.categories);
+      setQuestions(result.data.questions);
+      setStep("questions");
+    }
+    load();
+  }, []);
+
+  const currentCatId = categories[currentCategory]?.id;
+  const categoryQuestions = questions.filter((q) => q.category_id === currentCatId);
+  const allCategoryAnswered = categoryQuestions.every((q) => answers[q.id] !== undefined);
+
+  const handleAnswer = (questionId: string, value: number) => {
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
   };
-
-  const handleTextAnswer = (questionId: number, value: string) => {
-    setTextAnswers((prev) => ({ ...prev, [questionId]: value }));
-  };
-
-  const allCategoryAnswered = categoryQuestions.every(
-    (q) => answers[q.id] !== undefined
-  );
 
   const handleNext = () => {
     if (currentCategory < categories.length - 1) {
       setCurrentCategory((prev) => prev + 1);
     } else {
-      setStep("openended");
+      handleSubmit();
     }
   };
 
   const handlePrev = () => {
-    if (currentCategory > 0) {
-      setCurrentCategory((prev) => prev - 1);
+    if (currentCategory > 0) setCurrentCategory((prev) => prev - 1);
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const answerList = Object.entries(answers).map(([questionId, value]) => ({
+      questionId,
+      value,
+    }));
+
+    const result = await submitAssessment({ versionId, answers: answerList });
+
+    if (result.success && result.data) {
+      setResults(result.data);
+      setStep("results");
+    } else {
+      setError(result.message);
     }
+    setSubmitting(false);
   };
 
-  const handleSubmit = () => {
-    const result = calculateFullAssessment(answers);
-    setResults(result);
+  const progress = step === "questions"
+    ? ((currentCategory + 1) / categories.length) * 90
+    : step === "results" ? 100 : 5;
 
-    // Save to localStorage
-    saveAssessment({
-      id: `asr-${Date.now()}`,
-      personalInfo,
-      answers,
-      textAnswers,
-      scores: {
-        overallScore: result.overallScore,
-        riskLevel: result.riskLevel,
-        categoryScores: result.categoryScores.map((cs) => ({
-          category: cs.category,
-          percentage: cs.percentage,
-        })),
-      },
-      submittedAt: new Date().toISOString(),
-    });
+  // Login check / error state
+  if (error && step === "login-check") {
+    return (
+      <div className="min-h-screen bg-[#f9fafb]">
+        <Header />
+        <main className="max-w-lg mx-auto px-6 py-20 text-center page-enter">
+          <AlertCircle className="w-12 h-12 text-[#2a787c] mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-[#022932] mb-2">Access Required</h2>
+          <p className="text-[#5b7a80] mb-6">{error}</p>
+          <Link href="/login" className="btn-primary inline-flex items-center gap-2">
+            Sign In <ChevronRight className="w-4 h-4" />
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
-    setStep("results");
-  };
-
-  const handleStartAssessment = () => {
-    if (
-      personalInfo.name &&
-      personalInfo.email &&
-      personalInfo.department
-    ) {
-      setStep("questions");
-    }
-  };
-
-  const progress =
-    step === "questions"
-      ? ((currentCategory + 1) / categories.length) * 80
-      : step === "openended"
-      ? 90
-      : step === "results"
-      ? 100
-      : 5;
+  if (step === "login-check") {
+    return (
+      <div className="min-h-screen bg-[#f9fafb]">
+        <Header />
+        <main className="max-w-lg mx-auto px-6 py-20 text-center">
+          <Loader2 className="w-8 h-8 text-[#2a787c] animate-spin mx-auto mb-4" />
+          <p className="text-[#5b7a80]">Loading assessment...</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Heart className="w-8 h-8 text-indigo-600" fill="currentColor" />
-            <span className="text-xl font-bold text-gray-900">Manovyatha</span>
-          </Link>
-          <span className="text-sm text-gray-500">Wellness Assessment</span>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#f9fafb]">
+      <Header />
 
       {/* Progress Bar */}
-      <div className="w-full bg-gray-200 h-1">
-        <div
-          className="bg-indigo-600 h-1 transition-all duration-500"
-          style={{ width: `${progress}%` }}
-        />
+      <div className="w-full bg-[#d4e0e3] h-1">
+        <div className="bg-[#2a787c] h-1 transition-all duration-500" style={{ width: `${progress}%` }} />
       </div>
 
-      <main className="max-w-3xl mx-auto px-6 py-10">
-        {/* Personal Info Step */}
-        {step === "info" && (
-          <div className="bg-white rounded-2xl p-8 card-shadow">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Personal Information
-            </h1>
-            <p className="text-gray-600 mb-8">
-              This information helps us provide personalized insights. All data
-              is kept confidential.
-            </p>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  value={personalInfo.name}
-                  onChange={(e) =>
-                    setPersonalInfo({ ...personalInfo, name: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  placeholder="Enter your name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email *
-                </label>
-                <input
-                  type="email"
-                  value={personalInfo.email}
-                  onChange={(e) =>
-                    setPersonalInfo({ ...personalInfo, email: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  placeholder="Enter your email"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Age
-                </label>
-                <input
-                  type="number"
-                  value={personalInfo.age}
-                  onChange={(e) =>
-                    setPersonalInfo({ ...personalInfo, age: e.target.value })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  placeholder="Your age"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Department *
-                </label>
-                <select
-                  value={personalInfo.department}
-                  onChange={(e) =>
-                    setPersonalInfo({
-                      ...personalInfo,
-                      department: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                >
-                  <option value="">Select Department</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Design">Design</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="HR">HR</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Operations">Operations</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Designation
-                </label>
-                <input
-                  type="text"
-                  value={personalInfo.designation}
-                  onChange={(e) =>
-                    setPersonalInfo({
-                      ...personalInfo,
-                      designation: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  placeholder="Your job title"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Experience (years)
-                </label>
-                <input
-                  type="number"
-                  value={personalInfo.experience}
-                  onChange={(e) =>
-                    setPersonalInfo({
-                      ...personalInfo,
-                      experience: e.target.value,
-                    })
-                  }
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-                  placeholder="Years of experience"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Work Mode
-                </label>
-                <div className="flex gap-4">
-                  {["Remote", "Hybrid", "On-site"].map((mode) => (
-                    <label
-                      key={mode}
-                      className={`flex-1 text-center py-2.5 px-4 rounded-lg border cursor-pointer transition-all ${
-                        personalInfo.workMode === mode
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                          : "border-gray-300 hover:border-gray-400"
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="workMode"
-                        value={mode}
-                        checked={personalInfo.workMode === mode}
-                        onChange={(e) =>
-                          setPersonalInfo({
-                            ...personalInfo,
-                            workMode: e.target.value,
-                          })
-                        }
-                        className="sr-only"
-                      />
-                      {mode}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={handleStartAssessment}
-              disabled={
-                !personalInfo.name ||
-                !personalInfo.email ||
-                !personalInfo.department
-              }
-              className="mt-8 w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              Start Assessment
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        )}
-
+      <main className="max-w-3xl mx-auto px-6 py-10 page-enter">
         {/* Questions Step */}
         {step === "questions" && (
-          <div className="bg-white rounded-2xl p-8 card-shadow">
+          <div className="bg-white rounded-2xl p-8 card-shadow border border-[#d4e0e3]">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  {currentCategoryName}
-                </h2>
-                <p className="text-sm text-gray-500">
+                <h2 className="text-xl font-bold text-[#022932]">{categories[currentCategory]?.name}</h2>
+                <p className="text-sm text-[#5b7a80]">
                   Category {currentCategory + 1} of {categories.length}
                 </p>
               </div>
-              <span className="text-sm font-medium text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
-                {Object.keys(answers).length} / {questions.length} answered
+              <span className="text-sm font-medium text-[#2a787c] bg-[#2a787c]/10 px-3 py-1 rounded-full">
+                {Object.keys(answers).length} / {questions.length}
               </span>
             </div>
 
-            <div className="space-y-6">
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm">
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-5">
               {categoryQuestions.map((q, idx) => (
-                <div
-                  key={q.id}
-                  className="p-4 rounded-xl border border-gray-100 hover:border-indigo-100 transition-colors"
-                >
-                  <p className="text-gray-800 font-medium mb-3">
-                    {idx + 1}. {q.question}
+                <div key={q.id} className="p-4 rounded-xl border border-[#d4e0e3] hover:border-[#2a787c]/30 transition-colors">
+                  <p className="text-[#022932] font-medium mb-3">
+                    {idx + 1}. {q.question_text}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {likertOptions.map((option) => (
+                    {q.question_options.map((option) => (
                       <button
-                        key={option.value}
-                        onClick={() => handleLikertAnswer(q.id, option.value)}
+                        key={option.id}
+                        onClick={() => handleAnswer(q.id, option.value)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                           answers[q.id] === option.value
-                            ? "bg-indigo-600 text-white"
-                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                            ? "bg-[#022932] text-white"
+                            : "bg-[#f0f7f8] text-[#5b7a80] hover:bg-[#d4e0e3]"
                         }`}
                       >
                         {option.label}
@@ -354,70 +198,23 @@ export default function AssessmentPage() {
               <button
                 onClick={handlePrev}
                 disabled={currentCategory === 0}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-secondary flex items-center gap-2 !py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Previous
               </button>
               <button
                 onClick={handleNext}
-                disabled={!allCategoryAnswered}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                disabled={!allCategoryAnswered || submitting}
+                className="btn-primary flex items-center gap-2 !py-2.5"
               >
-                {currentCategory < categories.length - 1
-                  ? "Next Category"
-                  : "Open-ended Questions"}
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Open-ended Questions Step */}
-        {step === "openended" && (
-          <div className="bg-white rounded-2xl p-8 card-shadow">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
-              Open-ended Questions
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Share your thoughts in your own words. These responses are
-              analyzed by AI for deeper insights.
-            </p>
-
-            <div className="space-y-6">
-              {openEndedQuestions.map((q) => (
-                <div key={q.id}>
-                  <label className="block text-gray-800 font-medium mb-2">
-                    {q.question}
-                  </label>
-                  <textarea
-                    value={textAnswers[q.id] || ""}
-                    onChange={(e) => handleTextAnswer(q.id, e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"
-                    rows={3}
-                    placeholder="Type your answer here..."
-                  />
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-between mt-8">
-              <button
-                onClick={() => {
-                  setStep("questions");
-                  setCurrentCategory(categories.length - 1);
-                }}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Back
-              </button>
-              <button
-                onClick={handleSubmit}
-                className="flex items-center gap-2 px-8 py-2.5 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Submit Assessment
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : currentCategory < categories.length - 1 ? (
+                  <>Next <ChevronRight className="w-4 h-4" /></>
+                ) : (
+                  <>Submit Assessment <CheckCircle2 className="w-4 h-4" /></>
+                )}
               </button>
             </div>
           </div>
@@ -425,77 +222,36 @@ export default function AssessmentPage() {
 
         {/* Results Step */}
         {step === "results" && results && (
-          <div className="space-y-6">
-            <div className="bg-white rounded-2xl p-8 card-shadow text-center">
-              <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Assessment Complete!
-              </h2>
-              <p className="text-gray-600 mb-6">
-                Here are your wellness scores. Visit the Employee Dashboard for
-                detailed insights.
-              </p>
+          <div className="space-y-6 page-enter">
+            <div className="bg-white rounded-2xl p-8 card-shadow border border-[#d4e0e3] text-center">
+              <CheckCircle2 className="w-16 h-16 text-[#2a787c] mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-[#022932] mb-2">Assessment Complete!</h2>
+              <p className="text-[#5b7a80] mb-8">Here are your wellness scores.</p>
 
-              {/* Overall Score */}
-              <div className="inline-flex flex-col items-center mb-8">
-                <div
-                  className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold text-white ${
-                    results.overallScore >= 80
-                      ? "bg-green-500"
-                      : results.overallScore >= 65
-                      ? "bg-amber-500"
-                      : results.overallScore >= 50
-                      ? "bg-orange-500"
-                      : "bg-red-500"
-                  }`}
-                >
+              <div className="inline-flex flex-col items-center">
+                <div className={`w-32 h-32 rounded-full flex items-center justify-center text-4xl font-bold text-white ${getScoreBg(results.overallScore)}`}>
                   {results.overallScore}
                 </div>
-                <span className="mt-2 text-lg font-semibold text-gray-700">
-                  Overall Score
-                </span>
-                <span
-                  className={`text-sm font-medium px-3 py-1 rounded-full mt-1 ${
-                    results.riskLevel === "Excellent" ||
-                    results.riskLevel === "Healthy"
-                      ? "bg-green-100 text-green-700"
-                      : results.riskLevel === "Moderate"
-                      ? "bg-amber-100 text-amber-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {results.riskLevel}
+                <span className="mt-3 text-lg font-semibold text-[#022932]">Overall Score</span>
+                <span className={`text-sm font-medium px-3 py-1 rounded-full mt-1 ${getRiskBadge(results.riskLevel)}`}>
+                  {formatRiskLevel(results.riskLevel)}
                 </span>
               </div>
             </div>
 
-            {/* Category Scores */}
-            <div className="bg-white rounded-2xl p-8 card-shadow">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Category Breakdown
-              </h3>
+            {/* Category Breakdown */}
+            <div className="bg-white rounded-2xl p-8 card-shadow border border-[#d4e0e3]">
+              <h3 className="text-lg font-bold text-[#022932] mb-4">Category Breakdown</h3>
               <div className="space-y-4">
                 {results.categoryScores.map((cs) => (
                   <div key={cs.category}>
                     <div className="flex justify-between text-sm mb-1">
-                      <span className="font-medium text-gray-700">
-                        {cs.category}
-                      </span>
-                      <span className="font-semibold text-gray-900">
-                        {cs.percentage}%
-                      </span>
+                      <span className="font-medium text-[#022932]">{cs.category}</span>
+                      <span className="font-semibold text-[#2a787c]">{cs.percentage}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div className="w-full bg-[#d4e0e3] rounded-full h-3">
                       <div
-                        className={`h-3 rounded-full transition-all ${
-                          cs.percentage >= 80
-                            ? "bg-green-500"
-                            : cs.percentage >= 65
-                            ? "bg-amber-500"
-                            : cs.percentage >= 50
-                            ? "bg-orange-500"
-                            : "bg-red-500"
-                        }`}
+                        className={`h-3 rounded-full transition-all ${getScoreBar(cs.percentage)}`}
                         style={{ width: `${cs.percentage}%` }}
                       />
                     </div>
@@ -504,35 +260,11 @@ export default function AssessmentPage() {
               </div>
             </div>
 
-            {/* Risk Alert */}
-            {(results.riskLevel === "High Risk" ||
-              results.riskLevel === "Critical") && (
-              <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex gap-4">
-                <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-semibold text-red-800">
-                    Attention Required
-                  </h4>
-                  <p className="text-sm text-red-700 mt-1">
-                    Your scores indicate elevated stress or burnout risk. We
-                    recommend speaking with a wellness professional or your HR
-                    team for support.
-                  </p>
-                </div>
-              </div>
-            )}
-
             <div className="flex gap-4">
-              <Link
-                href="/dashboard/employee"
-                className="flex-1 text-center bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-              >
+              <Link href="/dashboard/employee" className="btn-primary flex-1 text-center">
                 View Full Report
               </Link>
-              <Link
-                href="/"
-                className="flex-1 text-center border border-gray-300 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-              >
+              <Link href="/" className="btn-secondary flex-1 text-center">
                 Back to Home
               </Link>
             </div>
@@ -541,4 +273,48 @@ export default function AssessmentPage() {
       </main>
     </div>
   );
+}
+
+function Header() {
+  return (
+    <header className="bg-white border-b border-[#d4e0e3] sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <Link href="/" className="flex items-center gap-2">
+          <Image src="/logo.png" alt="Manovyatha" width={32} height={32} />
+          <span className="text-xl font-bold text-[#022932]">Manovyatha</span>
+        </Link>
+        <span className="text-sm text-[#5b7a80]">Wellness Assessment</span>
+      </div>
+    </header>
+  );
+}
+
+function getScoreBg(score: number): string {
+  if (score >= 80) return "bg-[#2a787c]";
+  if (score >= 65) return "bg-[#d97706]";
+  if (score >= 50) return "bg-[#ea580c]";
+  return "bg-[#dc2626]";
+}
+
+function getScoreBar(score: number): string {
+  if (score >= 80) return "bg-[#2a787c]";
+  if (score >= 65) return "bg-[#d97706]";
+  if (score >= 50) return "bg-[#ea580c]";
+  return "bg-[#dc2626]";
+}
+
+function getRiskBadge(risk: string): string {
+  switch (risk) {
+    case "excellent":
+    case "healthy":
+      return "bg-[#2a787c]/10 text-[#2a787c]";
+    case "moderate":
+      return "bg-amber-100 text-amber-700";
+    default:
+      return "bg-red-100 text-red-700";
+  }
+}
+
+function formatRiskLevel(risk: string): string {
+  return risk.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
