@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, LogIn, Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
+import { LogIn, Eye, EyeOff } from "lucide-react";
 import { login } from "@/actions/auth";
 
 export default function LoginPage() {
@@ -44,7 +45,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Panel - Decorative */}
+      {/* Left Panel */}
       <div className="hidden lg:flex lg:w-1/2 gradient-bg relative overflow-hidden items-center justify-center p-12">
         <div className="absolute top-0 left-0 w-full h-full opacity-10">
           <div className="absolute top-20 left-20 w-40 h-40 border-2 border-white rounded-full" />
@@ -52,42 +53,41 @@ export default function LoginPage() {
           <div className="absolute top-1/2 left-1/3 w-24 h-24 border-2 border-white rounded-full" />
         </div>
         <div className="relative text-white max-w-md">
-          <Heart className="w-12 h-12 mb-6" fill="currentColor" />
+          <Image src="/logo.png" alt="Manovyatha" width={48} height={48} className="mb-6" />
           <h2 className="text-3xl font-bold mb-4">Welcome to Manovyatha</h2>
-          <p className="text-indigo-100 text-lg leading-relaxed">
+          <p className="text-[#b8ced2] text-lg leading-relaxed">
             Your trusted platform for employee wellness assessment and psychological insights. Confidential, AI-powered, and designed for well-being.
           </p>
-          <div className="mt-10 flex gap-6">
+          <div className="mt-10 flex gap-8">
             <div>
-              <p className="text-2xl font-bold">6</p>
-              <p className="text-indigo-200 text-sm">Wellness Dimensions</p>
+              <p className="text-2xl font-bold text-white">6</p>
+              <p className="text-[#8ba5aa] text-sm">Dimensions</p>
             </div>
             <div>
-              <p className="text-2xl font-bold">AI</p>
-              <p className="text-indigo-200 text-sm">Powered Insights</p>
+              <p className="text-2xl font-bold text-white">AI</p>
+              <p className="text-[#8ba5aa] text-sm">Insights</p>
             </div>
             <div>
-              <p className="text-2xl font-bold">100%</p>
-              <p className="text-indigo-200 text-sm">Confidential</p>
+              <p className="text-2xl font-bold text-white">100%</p>
+              <p className="text-[#8ba5aa] text-sm">Confidential</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Right Panel - Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-gray-50">
+      {/* Right Panel */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 bg-[#f9fafb]">
         <div className="w-full max-w-md page-enter">
-          {/* Mobile logo */}
           <div className="lg:hidden text-center mb-8">
             <div className="inline-flex items-center gap-2">
-              <Heart className="w-8 h-8 text-indigo-600" fill="currentColor" />
-              <span className="text-xl font-bold text-gray-900">Manovyatha</span>
+              <Image src="/logo.png" alt="Manovyatha" width={32} height={32} />
+              <span className="text-xl font-bold text-[#022932]">Manovyatha</span>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-8 card-shadow-lg border border-gray-100">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Sign In</h1>
-            <p className="text-gray-500 text-sm mb-8">Enter your credentials to access the platform</p>
+          <div className="bg-white rounded-2xl p-8 card-shadow-lg border border-[#d4e0e3]">
+            <h1 className="text-2xl font-bold text-[#022932] mb-1">Sign In</h1>
+            <p className="text-[#5b7a80] text-sm mb-8">Enter your credentials to access the platform</p>
 
             {error && (
               <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 text-red-700 text-sm font-medium">
@@ -97,7 +97,7 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="email" className="block text-sm font-medium text-[#022932] mb-1.5">
                   Email Address
                 </label>
                 <input
@@ -113,7 +113,7 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
+                <label htmlFor="password" className="block text-sm font-medium text-[#022932] mb-1.5">
                   Password
                 </label>
                 <div className="relative">
@@ -130,7 +130,7 @@ export default function LoginPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8ba5aa] hover:text-[#022932]"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -154,10 +154,8 @@ export default function LoginPage() {
             </form>
           </div>
 
-          <p className="text-center text-xs text-gray-400 mt-6">
-            <Link href="/" className="hover:text-indigo-600 transition-colors">
-              ← Back to home
-            </Link>
+          <p className="text-center text-xs text-[#8ba5aa] mt-6">
+            <Link href="/" className="hover:text-[#2a787c] transition-colors">← Back to home</Link>
           </p>
         </div>
       </div>
