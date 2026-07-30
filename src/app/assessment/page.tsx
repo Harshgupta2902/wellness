@@ -129,7 +129,7 @@ export default function AssessmentPage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <Heart className="w-8 h-8 text-indigo-600" fill="currentColor" />
-            <span className="text-xl font-bold text-gray-900">WellPulse</span>
+            <span className="text-xl font-bold text-gray-900">Manovyatha</span>
           </Link>
           <span className="text-sm text-gray-500">Wellness Assessment</span>
         </div>

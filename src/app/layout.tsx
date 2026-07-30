@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WellPulse - Employee Wellness Platform",
+  title: "Manovyatha - Employee Wellness Platform",
   description:
     "AI-powered employee wellness assessment and insights platform",
 };

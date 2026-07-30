@@ -18,7 +18,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Heart className="w-8 h-8 text-indigo-600" fill="currentColor" />
-            <span className="text-xl font-bold text-gray-900">WellPulse</span>
+            <span className="text-xl font-bold text-gray-900">Manovyatha</span>
           </div>
           <nav className="flex items-center gap-6">
             <Link
@@ -189,7 +189,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Heart className="w-5 h-5 text-indigo-400" fill="currentColor" />
-            <span className="text-white font-semibold">WellPulse</span>
+            <span className="text-white font-semibold">Manovyatha</span>
           </div>
           <p className="text-sm">
             This platform supports employee wellbeing and is not intended to

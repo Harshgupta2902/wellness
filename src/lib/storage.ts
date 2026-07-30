@@ -24,7 +24,7 @@ export interface SavedAssessment {
   submittedAt: string;
 }
 
-const STORAGE_KEY = "wellpulse_assessments";
+const STORAGE_KEY = "manovyatha_assessments";
 
 export function saveAssessment(assessment: SavedAssessment): void {
   if (typeof window === "undefined") return;
