@@ -131,20 +131,37 @@ export async function getSession(): Promise<SessionData | null> {
 export async function setupSuperAdmin(): Promise<ActionResult> {
   const supabase = createServerClient();
 
-  // Check if super admin exists
+  const passwordHash = hashPassword("Wellness@12345");
+
+  // Check if super admin already exists
   const { data: existing } = await supabase
     .from("users")
-    .select("id")
-    .eq("role", "super_admin")
+    .select("id, password_hash")
+    .eq("email", "admin@manovyatha.com")
     .limit(1)
     .single();
 
   if (existing) {
-    return { success: false, message: "Super Admin already exists", data: null };
+    // If exists but has a placeholder/broken hash, fix it
+    const isValid = verifyPassword("Wellness@12345", existing.password_hash);
+    if (isValid) {
+      return { success: false, message: "Super Admin already exists and password is correct. Go to login.", data: null };
+    }
+
+    // Update with correct password hash
+    await supabase
+      .from("users")
+      .update({ password_hash: passwordHash, is_active: true, role: "super_admin" })
+      .eq("id", existing.id);
+
+    return {
+      success: true,
+      message: "Super Admin password reset. Login with admin@manovyatha.com / Wellness@12345",
+      data: { id: existing.id },
+    };
   }
 
-  const passwordHash = hashPassword("Wellness@12345");
-
+  // Create new
   const { data: admin, error } = await supabase
     .from("users")
     .insert({
