@@ -44,7 +44,7 @@ export default function Header({ email, role }: HeaderProps) {
       <div className="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Manovyatha" width={30} height={30} />
+            <Image src="/logo.png" alt="Manovyatha" width={40} height={40} />
             <span className="text-lg font-bold text-[#022932]">Manovyatha</span>
           </Link>
         </div>
