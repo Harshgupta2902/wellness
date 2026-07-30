@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { LogIn, Eye, EyeOff } from "lucide-react";
-import { login } from "@/actions/auth";
+import { login, getSession } from "@/actions/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +14,31 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    async function checkAuth() {
+      const session = await getSession();
+      if (session) {
+        switch (session.role) {
+          case "super_admin":
+            router.push("/admin");
+            break;
+          case "org_admin":
+            router.push("/dashboard/hr");
+            break;
+          case "employee":
+            router.push("/dashboard/employee");
+            break;
+          default:
+            router.push("/");
+        }
+      } else {
+        setCheckingSession(false);
+      }
+    }
+    checkAuth();
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +67,14 @@ export default function LoginPage() {
 
     setLoading(false);
   };
+
+  if (checkingSession) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f9fafb]">
+        <Image src="/logo.png" alt="Loading" width={32} height={32} className="animate-pulse" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">

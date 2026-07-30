@@ -3,11 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { createTemplate } from "@/actions/assessment-builder";
+import AuthGuard from "@/components/AuthGuard";
+import Header from "@/components/Header";
 
 export default function NewTemplatePage() {
+  return (
+    <AuthGuard allowedRoles={["super_admin"]}>
+      {(session) => <NewTemplateContent email={session.email} />}
+    </AuthGuard>
+  );
+}
+
+function NewTemplateContent({ email }: { email: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -33,16 +42,7 @@ export default function NewTemplatePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Link href="/admin" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Manovyatha" width={28} height={28} />
-            <span className="text-lg font-bold text-[#022932]">Manovyatha</span>
-          </Link>
-          <span className="text-gray-300">/</span>
-          <span className="text-sm text-gray-500">New Template</span>
-        </div>
-      </header>
+      <Header email={email} role="super_admin" />
 
       <main className="max-w-xl mx-auto px-6 py-10 page-enter">
         <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors mb-8">

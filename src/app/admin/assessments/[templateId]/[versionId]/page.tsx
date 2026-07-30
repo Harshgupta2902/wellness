@@ -7,24 +7,45 @@ import Image from "next/image";
 import {
   ArrowLeft,
   Plus,
-  Check,
   Layers,
   MessageSquare,
   X,
   Rocket,
+  Pencil,
+  Trash2,
+  RotateCcw,
+  Save,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import {
   getCategories,
+  getQuestions,
   createCategory,
   createQuestion,
   publishVersion,
+  updateQuestion,
+  deleteQuestion,
+  updateCategory,
+  deleteCategory,
 } from "@/actions/assessment-builder";
-import { getSession } from "@/actions/auth";
+import AuthGuard from "@/components/AuthGuard";
+import Header from "@/components/Header";
 
 interface CategoryInfo {
   id: string;
   name: string;
   weight: number;
+  sort_order: number;
+}
+
+interface QuestionInfo {
+  id: string;
+  category_id: string;
+  question_text: string;
+  question_type: string;
+  weight: number;
+  is_reverse_scored: boolean;
   sort_order: number;
 }
 
@@ -34,203 +55,317 @@ export default function AssessmentBuilderPage({
   params: Promise<{ templateId: string; versionId: string }>;
 }) {
   const { versionId } = use(params);
+
+  return (
+    <AuthGuard allowedRoles={["super_admin"]}>
+      {(session) => <BuilderContent versionId={versionId} email={session.email} />}
+    </AuthGuard>
+  );
+}
+
+function BuilderContent({ versionId, email }: { versionId: string; email: string }) {
   const router = useRouter();
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
-  const [questionsAdded, setQuestionsAdded] = useState(0);
+  const [questions, setQuestions] = useState<QuestionInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [publishing, setPublishing] = useState(false);
-  const [message, setMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
+  const [toast, setToast] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
-  // Category form
+  // Expanded categories
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
+
+  // Add forms
   const [showCatForm, setShowCatForm] = useState(false);
   const [catName, setCatName] = useState("");
   const [catWeight, setCatWeight] = useState("0.20");
 
-  // Question form
   const [showQForm, setShowQForm] = useState(false);
   const [qCategoryId, setQCategoryId] = useState("");
   const [qText, setQText] = useState("");
   const [qType, setQType] = useState("likert");
   const [qReverse, setQReverse] = useState(false);
-  const [qWeight, setQWeight] = useState("1");
+
+  // Edit state
+  const [editingQuestion, setEditingQuestion] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [editReverse, setEditReverse] = useState(false);
 
   useEffect(() => {
     async function load() {
-      const session = await getSession();
-      if (!session || session.role !== "super_admin") {
-        router.push("/login");
-        return;
-      }
-      const result = await getCategories(versionId);
-      if (result.success && result.data) setCategories(result.data);
+      await refresh();
       setLoading(false);
     }
     load();
-  }, [versionId, router]);
+  }, [versionId]);
 
-  const showMsg = (text: string, type: "success" | "error" | "info" = "info") => {
-    setMessage({ text, type });
-    setTimeout(() => setMessage(null), 3000);
+  const refresh = async () => {
+    const [catResult, qResult] = await Promise.all([
+      getCategories(versionId),
+      getQuestions(versionId),
+    ]);
+    if (catResult.success && catResult.data) setCategories(catResult.data);
+    if (qResult.success && qResult.data) setQuestions(qResult.data);
   };
+
+  const notify = (text: string, type: "success" | "error" = "success") => {
+    setToast({ text, type });
+    setTimeout(() => setToast(null), 2500);
+  };
+
+  const toggleCat = (id: string) => {
+    setExpandedCats((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const expandAll = () => setExpandedCats(new Set(categories.map((c) => c.id)));
+
+  // ─── Handlers ──────────────────────────────────────────
 
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!catName.trim()) return;
-
     const result = await createCategory(versionId, catName, parseFloat(catWeight), categories.length);
     if (result.success) {
-      const refreshed = await getCategories(versionId);
-      if (refreshed.success && refreshed.data) setCategories(refreshed.data);
+      await refresh();
       setCatName("");
       setCatWeight("0.20");
       setShowCatForm(false);
-      showMsg("Category added", "success");
-    } else {
-      showMsg(result.message, "error");
-    }
+      notify("Category added");
+    } else notify(result.message, "error");
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    if (!confirm("Delete this category and all its questions?")) return;
+    const result = await deleteCategory(id);
+    if (result.success) { await refresh(); notify("Category deleted"); }
+    else notify(result.message, "error");
   };
 
   const handleAddQuestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!qCategoryId || !qText.trim()) return;
-
     const result = await createQuestion(versionId, {
       categoryId: qCategoryId,
       questionText: qText,
       questionType: qType,
       isReverseScored: qReverse,
-      weight: parseFloat(qWeight),
-      sortOrder: questionsAdded,
+      sortOrder: questions.length,
     });
-
     if (result.success) {
       setQText("");
       setQReverse(false);
-      setQuestionsAdded((n) => n + 1);
-      showMsg("Question added", "success");
-    } else {
-      showMsg(result.message, "error");
-    }
+      await refresh();
+      notify("Question added");
+    } else notify(result.message, "error");
+  };
+
+  const handleEditQuestion = (q: QuestionInfo) => {
+    setEditingQuestion(q.id);
+    setEditText(q.question_text);
+    setEditReverse(q.is_reverse_scored);
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    const result = await updateQuestion(id, { questionText: editText, isReverseScored: editReverse });
+    if (result.success) { await refresh(); setEditingQuestion(null); notify("Question updated"); }
+    else notify(result.message, "error");
+  };
+
+  const handleDeleteQuestion = async (id: string) => {
+    if (!confirm("Delete this question?")) return;
+    const result = await deleteQuestion(id);
+    if (result.success) { await refresh(); notify("Question deleted"); }
+    else notify(result.message, "error");
   };
 
   const handlePublish = async () => {
     setPublishing(true);
     const result = await publishVersion(versionId);
     if (result.success) {
-      showMsg("Published! Redirecting...", "success");
-      setTimeout(() => router.push("/admin"), 1500);
-    } else {
-      showMsg(result.message, "error");
-      setPublishing(false);
-    }
+      notify("Published!");
+      setTimeout(() => router.push("/admin"), 1000);
+    } else { notify(result.message, "error"); setPublishing(false); }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[#f9fafb] flex items-center justify-center">
         <Image src="/logo.png" alt="Loading" width={32} height={32} className="animate-pulse" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/admin" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Manovyatha" width={28} height={28} />
-              <span className="text-lg font-bold text-[#022932]">Manovyatha</span>
-            </Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-sm text-gray-500">Assessment Builder</span>
-          </div>
-          <button
-            onClick={handlePublish}
-            disabled={publishing || categories.length === 0 || questionsAdded === 0}
-            className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl text-sm font-semibold hover:from-green-600 hover:to-emerald-700 disabled:from-gray-300 disabled:to-gray-300 disabled:cursor-not-allowed transition-all shadow-sm"
-          >
-            <Rocket className="w-4 h-4" />
-            {publishing ? "Publishing..." : "Publish"}
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#f9fafb]">
+      <Header email={email} role="super_admin" />
 
-      <main className="max-w-4xl mx-auto px-6 py-8 page-enter">
-        <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-indigo-600 transition-colors mb-6">
-          <ArrowLeft className="w-4 h-4" />
-          Back
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-16 right-6 z-50 px-4 py-2.5 rounded-xl text-sm font-medium shadow-lg animate-in ${
+          toast.type === "success" ? "bg-[#022932] text-white" : "bg-red-600 text-white"
+        }`}>
+          {toast.text}
+        </div>
+      )}
+
+      <main className="max-w-6xl mx-auto px-6 py-6 page-enter">
+        <Link href="/admin" className="inline-flex items-center gap-1.5 text-sm text-[#5b7a80] hover:text-[#022932] transition-colors mb-5">
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Back to Dashboard
         </Link>
 
-        {/* Status Message */}
-        {message && (
-          <div className={`mb-5 p-3 rounded-xl text-sm font-medium flex items-center gap-2 ${
-            message.type === "success" ? "bg-green-50 border border-green-100 text-green-700" :
-            message.type === "error" ? "bg-red-50 border border-red-100 text-red-700" :
-            "bg-indigo-50 border border-indigo-100 text-indigo-700"
-          }`}>
-            <Check className="w-4 h-4" />
-            {message.text}
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-white rounded-xl p-4 border border-[#d4e0e3] card-shadow">
+            <p className="text-2xl font-bold text-[#022932]">{categories.length}</p>
+            <p className="text-xs text-[#5b7a80]">Categories</p>
           </div>
-        )}
-
-        {/* Progress indicators */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-4 border border-gray-100 card-shadow">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                <Layers className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-gray-900">{categories.length}</p>
-                <p className="text-xs text-gray-500">Categories</p>
-              </div>
-            </div>
+          <div className="bg-white rounded-xl p-4 border border-[#d4e0e3] card-shadow">
+            <p className="text-2xl font-bold text-[#022932]">{questions.length}</p>
+            <p className="text-xs text-[#5b7a80]">Questions</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-100 card-shadow">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-green-50 flex items-center justify-center text-green-600">
-                <MessageSquare className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xl font-bold text-gray-900">{questionsAdded}</p>
-                <p className="text-xs text-gray-500">Questions Added</p>
-              </div>
-            </div>
+          <div className="bg-white rounded-xl p-4 border border-[#d4e0e3] card-shadow">
+            <p className="text-2xl font-bold text-[#2a787c]">
+              {(categories.reduce((s, c) => s + c.weight, 0) * 100).toFixed(0)}%
+            </p>
+            <p className="text-xs text-[#5b7a80]">Total Weight</p>
           </div>
         </div>
 
-        {/* Categories */}
-        <section className="bg-white rounded-2xl p-6 card-shadow border border-gray-100 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-indigo-600" />
-              Categories
-            </h2>
-            <button
-              onClick={() => setShowCatForm(!showCatForm)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700"
-            >
-              {showCatForm ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-              {showCatForm ? "Cancel" : "Add"}
-            </button>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left: Categories + Questions list */}
+          <div className="lg:col-span-2 space-y-3">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-[#022932]">Categories & Questions</h2>
+              <div className="flex gap-2">
+                <button onClick={expandAll} className="text-xs text-[#2a787c] hover:underline">Expand All</button>
+                <button onClick={() => setExpandedCats(new Set())} className="text-xs text-[#5b7a80] hover:underline">Collapse</button>
+              </div>
+            </div>
+
+            {categories.length === 0 && (
+              <div className="bg-white rounded-xl p-8 border border-[#d4e0e3] text-center">
+                <p className="text-[#5b7a80] text-sm">No categories yet. Add one from the panel on the right.</p>
+              </div>
+            )}
+
+            {categories.map((cat) => {
+              const catQuestions = questions.filter((q) => q.category_id === cat.id);
+              const isExpanded = expandedCats.has(cat.id);
+
+              return (
+                <div key={cat.id} className="bg-white rounded-xl border border-[#d4e0e3] overflow-hidden card-shadow">
+                  {/* Category header */}
+                  <div
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-[#f5fafa] transition-colors"
+                    onClick={() => toggleCat(cat.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      {isExpanded ? <ChevronDown className="w-4 h-4 text-[#5b7a80]" /> : <ChevronRight className="w-4 h-4 text-[#5b7a80]" />}
+                      <span className="font-semibold text-[#022932] text-sm">{cat.name}</span>
+                      <span className="text-xs text-[#5b7a80] bg-[#f0f7f8] px-2 py-0.5 rounded-full">{catQuestions.length} questions</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-[#2a787c]">{(cat.weight * 100).toFixed(0)}%</span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat.id); }}
+                        className="text-[#8ba5aa] hover:text-red-500 transition-colors p-1"
+                        title="Delete category"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Questions list */}
+                  {isExpanded && (
+                    <div className="border-t border-[#d4e0e3]">
+                      {catQuestions.length === 0 ? (
+                        <p className="text-xs text-[#8ba5aa] text-center py-4">No questions in this category</p>
+                      ) : (
+                        <div className="divide-y divide-[#f0f7f8]">
+                          {catQuestions.map((q, idx) => (
+                            <div key={q.id} className="px-4 py-2.5 hover:bg-[#fafcfc] group">
+                              {editingQuestion === q.id ? (
+                                /* Edit mode */
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    value={editText}
+                                    onChange={(e) => setEditText(e.target.value)}
+                                    className="input-field text-sm"
+                                    autoFocus
+                                  />
+                                  <div className="flex items-center gap-3">
+                                    <label className="flex items-center gap-1.5 text-xs text-[#5b7a80] cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={editReverse}
+                                        onChange={(e) => setEditReverse(e.target.checked)}
+                                        className="w-3.5 h-3.5 rounded border-gray-300 text-[#2a787c]"
+                                      />
+                                      Reverse scored
+                                    </label>
+                                    <div className="flex-1" />
+                                    <button onClick={() => setEditingQuestion(null)} className="text-xs text-[#5b7a80] hover:text-[#022932]">Cancel</button>
+                                    <button onClick={() => handleSaveEdit(q.id)} className="text-xs font-semibold text-[#2a787c] hover:text-[#022932] flex items-center gap-1">
+                                      <Save className="w-3 h-3" /> Save
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                /* View mode */
+                                <div className="flex items-start gap-3">
+                                  <span className="text-[10px] text-[#8ba5aa] font-mono w-5 text-right flex-shrink-0 mt-0.5">{idx + 1}</span>
+                                  <p className="text-sm text-[#022932] flex-1 leading-relaxed">{q.question_text}</p>
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                    {q.is_reverse_scored && (
+                                      <span className="text-[9px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded mr-1">R</span>
+                                    )}
+                                    <button onClick={() => handleEditQuestion(q)} className="p-1 text-[#8ba5aa] hover:text-[#2a787c]" title="Edit">
+                                      <Pencil className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => handleDeleteQuestion(q.id)} className="p-1 text-[#8ba5aa] hover:text-red-500" title="Delete">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {showCatForm && (
-            <form onSubmit={handleAddCategory} className="mb-4 p-4 bg-gray-50 rounded-xl space-y-3">
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <input
-                    type="text"
-                    value={catName}
-                    onChange={(e) => setCatName(e.target.value)}
-                    className="input-field"
-                    placeholder="Category name (e.g., Mental Wellbeing)"
-                    required
-                  />
-                </div>
-                <div>
+          {/* Right: Add forms */}
+          <div className="space-y-4">
+            {/* Add Category */}
+            <div className="bg-white rounded-xl p-5 border border-[#d4e0e3] card-shadow">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-[#022932] flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-[#2a787c]" />
+                  Add Category
+                </h3>
+              </div>
+              <form onSubmit={handleAddCategory} className="space-y-3">
+                <input
+                  type="text"
+                  value={catName}
+                  onChange={(e) => setCatName(e.target.value)}
+                  className="input-field text-sm"
+                  placeholder="Category name"
+                  required
+                />
+                <div className="flex gap-2">
                   <input
                     type="number"
                     step="0.01"
@@ -238,73 +373,48 @@ export default function AssessmentBuilderPage({
                     max="1"
                     value={catWeight}
                     onChange={(e) => setCatWeight(e.target.value)}
-                    className="input-field"
+                    className="input-field text-sm w-24"
                     placeholder="Weight"
                   />
+                  <button type="submit" className="btn-primary !py-2 text-xs flex-1">
+                    <Plus className="w-3 h-3 inline mr-1" />Add
+                  </button>
                 </div>
-              </div>
-              <button type="submit" className="btn-primary !py-2 text-sm w-full">
-                Add Category
-              </button>
-            </form>
-          )}
-
-          {categories.length === 0 ? (
-            <p className="text-gray-400 text-sm text-center py-6">Add your first category to begin.</p>
-          ) : (
-            <div className="space-y-2">
-              {categories.map((cat, idx) => (
-                <div key={cat.id} className="flex items-center justify-between p-3 rounded-xl bg-gray-50 border border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center">
-                      {idx + 1}
-                    </span>
-                    <span className="font-medium text-gray-800 text-sm">{cat.name}</span>
-                  </div>
-                  <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
-                    {(cat.weight * 100).toFixed(0)}%
-                  </span>
-                </div>
-              ))}
+              </form>
             </div>
-          )}
-        </section>
 
-        {/* Questions */}
-        <section className="bg-white rounded-2xl p-6 card-shadow border border-gray-100">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-green-600" />
-              Questions
-            </h2>
-            <button
-              onClick={() => setShowQForm(!showQForm)}
-              disabled={categories.length === 0}
-              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              {showQForm ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-              {showQForm ? "Cancel" : "Add"}
-            </button>
-          </div>
-
-          {showQForm && (
-            <form onSubmit={handleAddQuestion} className="p-4 bg-gray-50 rounded-xl space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+            {/* Add Question */}
+            <div className="bg-white rounded-xl p-5 border border-[#d4e0e3] card-shadow">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-[#022932] flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-[#2a787c]" />
+                  Add Question
+                </h3>
+              </div>
+              <form onSubmit={handleAddQuestion} className="space-y-3">
                 <select
                   value={qCategoryId}
                   onChange={(e) => setQCategoryId(e.target.value)}
-                  className="input-field"
+                  className="input-field text-sm"
                   required
                 >
-                  <option value="">Select Category</option>
+                  <option value="">Select category</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
+                <textarea
+                  value={qText}
+                  onChange={(e) => setQText(e.target.value)}
+                  className="input-field text-sm !h-auto resize-none"
+                  rows={2}
+                  placeholder="Question text..."
+                  required
+                />
                 <select
                   value={qType}
                   onChange={(e) => setQType(e.target.value)}
-                  className="input-field"
+                  className="input-field text-sm"
                 >
                   <option value="likert">Likert (1-5)</option>
                   <option value="stars">Stars</option>
@@ -313,60 +423,22 @@ export default function AssessmentBuilderPage({
                   <option value="slider">Slider</option>
                   <option value="nps">NPS</option>
                 </select>
-              </div>
-
-              <input
-                type="text"
-                value={qText}
-                onChange={(e) => setQText(e.target.value)}
-                className="input-field"
-                placeholder="Question text (e.g., I feel emotionally healthy.)"
-                required
-              />
-
-              <div className="flex items-center gap-4">
-                <div className="w-28">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={qWeight}
-                    onChange={(e) => setQWeight(e.target.value)}
-                    className="input-field"
-                    placeholder="Weight"
-                  />
-                </div>
-                <label className="flex items-center gap-2 cursor-pointer select-none">
+                <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={qReverse}
                     onChange={(e) => setQReverse(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-[#2a787c]"
                   />
-                  <span className="text-sm text-gray-700">Reverse Scored</span>
+                  <span className="text-xs text-[#5b7a80]">Reverse scored</span>
                 </label>
-              </div>
-
-              <button type="submit" className="btn-primary !py-2 text-sm w-full">
-                Add Question
-              </button>
-            </form>
-          )}
-
-          {!showQForm && categories.length === 0 && (
-            <p className="text-gray-400 text-sm text-center py-6">Add categories first to start adding questions.</p>
-          )}
-
-          {!showQForm && categories.length > 0 && questionsAdded === 0 && (
-            <p className="text-gray-400 text-sm text-center py-6">No questions yet. Click &quot;Add&quot; to start.</p>
-          )}
-
-          {!showQForm && questionsAdded > 0 && (
-            <p className="text-green-600 text-sm text-center py-6 font-medium">
-              ✓ {questionsAdded} question{questionsAdded !== 1 ? "s" : ""} added this session
-            </p>
-          )}
-        </section>
+                <button type="submit" disabled={!qCategoryId || !qText.trim()} className="btn-accent !py-2 text-xs w-full">
+                  <Plus className="w-3 h-3 inline mr-1" />Add Question
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );

@@ -8,15 +8,16 @@ import {
   Building2,
   ClipboardList,
   Plus,
-  LogOut,
   Shield,
   ArrowRight,
   X,
+  Users,
 } from "lucide-react";
-import { getSession, logout } from "@/actions/auth";
 import { getOrganizations, createOrganization } from "@/actions/organizations";
 import { getTemplates } from "@/actions/assessment-builder";
 import type { Organization } from "@/lib/supabase/types";
+import AuthGuard from "@/components/AuthGuard";
+import Header from "@/components/Header";
 
 interface TemplateInfo {
   id: string;
@@ -27,6 +28,14 @@ interface TemplateInfo {
 }
 
 export default function AdminDashboard() {
+  return (
+    <AuthGuard allowedRoles={["super_admin"]}>
+      {(session) => <AdminContent email={session.email} />}
+    </AuthGuard>
+  );
+}
+
+function AdminContent({ email }: { email: string }) {
   const router = useRouter();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [templates, setTemplates] = useState<TemplateInfo[]>([]);
@@ -37,12 +46,6 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     async function load() {
-      const session = await getSession();
-      if (!session || session.role !== "super_admin") {
-        router.push("/login");
-        return;
-      }
-
       const [orgsResult, templatesResult] = await Promise.all([
         getOrganizations(),
         getTemplates(),
@@ -68,11 +71,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    router.push("/login");
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -86,25 +84,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Image src="/logo.png" alt="Manovyatha" width={28} height={28} />
-            <span className="text-lg font-bold text-[#022932]">Manovyatha</span>
-            <span className="px-2.5 py-1 rounded-full bg-[#022932] text-white text-[10px] font-bold uppercase tracking-wide">
-              Admin
-            </span>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-gray-500 hover:text-red-600 font-medium text-sm transition-colors px-3 py-2 rounded-lg hover:bg-red-50"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
-          </button>
-        </div>
-      </header>
+      <Header email={email} role="super_admin" />
 
       <main className="max-w-7xl mx-auto px-6 py-8 page-enter">
         {/* Welcome */}
@@ -114,25 +94,38 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
           <StatCard
             icon={<Building2 className="w-5 h-5" />}
             label="Organizations"
             value={organizations.length}
-            gradient="from-indigo-500 to-purple-600"
+            gradient="from-[#022932] to-[#064a56]"
           />
           <StatCard
             icon={<ClipboardList className="w-5 h-5" />}
-            label="Assessment Templates"
+            label="Templates"
             value={templates.length}
-            gradient="from-emerald-500 to-green-600"
+            gradient="from-[#2a787c] to-[#3a9ca0]"
           />
           <StatCard
             icon={<Shield className="w-5 h-5" />}
-            label="Published Versions"
+            label="Published"
             value={templates.filter((t) => t.versions.some((v) => v.status === "published")).length}
-            gradient="from-amber-500 to-orange-500"
+            gradient="from-[#1f5c5f] to-[#2a787c]"
           />
+          <Link href="/admin/users" className="block">
+            <div className="bg-white rounded-2xl p-5 card-shadow border border-[#d4e0e3] hover:border-[#2a787c] transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#022932] to-[#2a787c] flex items-center justify-center text-white">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#2a787c]">Manage Users →</p>
+                  <p className="text-xs text-[#5b7a80]">Create & manage</p>
+                </div>
+              </div>
+            </div>
+          </Link>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">

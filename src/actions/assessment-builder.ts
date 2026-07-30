@@ -161,6 +161,31 @@ export async function getCategories(versionId: string): Promise<ActionResult<{ i
 
 // ─── Questions ────────────────────────────────────────────────────────────────
 
+export async function getQuestions(versionId: string): Promise<ActionResult<{
+  id: string;
+  category_id: string;
+  question_text: string;
+  question_type: string;
+  weight: number;
+  is_reverse_scored: boolean;
+  sort_order: number;
+}[]>> {
+  const session = await getSession();
+  if (!session) return { success: false, message: "Not authenticated", data: null };
+
+  const supabase = createServerClient();
+
+  const { data, error } = await supabase
+    .from("questions")
+    .select("id, category_id, question_text, question_type, weight, is_reverse_scored, sort_order")
+    .eq("version_id", versionId)
+    .is("deleted_at", null)
+    .order("sort_order", { ascending: true });
+
+  if (error) return { success: false, message: error.message, data: null };
+  return { success: true, message: "Success", data: (data || []).map((q) => ({ ...q, weight: Number(q.weight) })) };
+}
+
 export async function createQuestion(versionId: string, input: CreateQuestionInput): Promise<ActionResult<{ id: string }>> {
   const session = await getSession();
   if (!session) return { success: false, message: "Not authenticated", data: null };
@@ -314,4 +339,118 @@ export async function createNewVersion(templateId: string): Promise<ActionResult
   if (error) return { success: false, message: error.message, data: null };
 
   return { success: true, message: "New version created", data: { versionId: data.id, versionNumber: nextVersion } };
+}
+
+// ─── Update Question ──────────────────────────────────────────────────────────
+
+export async function updateQuestion(
+  questionId: string,
+  updates: { questionText?: string; isReverseScored?: boolean; weight?: number; questionType?: string }
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return { success: false, message: "Not authenticated", data: null };
+  if (session.role !== "super_admin") return { success: false, message: "Unauthorized", data: null };
+
+  const supabase = createServerClient();
+
+  const updateData: Record<string, unknown> = {};
+  if (updates.questionText !== undefined) updateData.question_text = updates.questionText;
+  if (updates.isReverseScored !== undefined) updateData.is_reverse_scored = updates.isReverseScored;
+  if (updates.weight !== undefined) updateData.weight = updates.weight;
+  if (updates.questionType !== undefined) updateData.question_type = updates.questionType;
+
+  const { error } = await supabase
+    .from("questions")
+    .update(updateData)
+    .eq("id", questionId);
+
+  if (error) return { success: false, message: error.message, data: null };
+
+  await logAudit({
+    userId: session.userId,
+    action: "question_updated",
+    entityType: "question",
+    entityId: questionId,
+    metadata: updateData,
+  });
+
+  return { success: true, message: "Question updated", data: null };
+}
+
+// ─── Delete Question (soft) ───────────────────────────────────────────────────
+
+export async function deleteQuestion(questionId: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return { success: false, message: "Not authenticated", data: null };
+  if (session.role !== "super_admin") return { success: false, message: "Unauthorized", data: null };
+
+  const supabase = createServerClient();
+
+  const { error } = await supabase
+    .from("questions")
+    .update({ deleted_at: new Date().toISOString(), deleted_by: session.userId })
+    .eq("id", questionId);
+
+  if (error) return { success: false, message: error.message, data: null };
+  return { success: true, message: "Question deleted", data: null };
+}
+
+// ─── Update Category ──────────────────────────────────────────────────────────
+
+export async function updateCategory(
+  categoryId: string,
+  updates: { name?: string; weight?: number }
+): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return { success: false, message: "Not authenticated", data: null };
+  if (session.role !== "super_admin") return { success: false, message: "Unauthorized", data: null };
+
+  const supabase = createServerClient();
+
+  const updateData: Record<string, unknown> = {};
+  if (updates.name !== undefined) updateData.name = updates.name;
+  if (updates.weight !== undefined) updateData.weight = updates.weight;
+
+  const { error } = await supabase
+    .from("categories")
+    .update(updateData)
+    .eq("id", categoryId);
+
+  if (error) return { success: false, message: error.message, data: null };
+
+  await logAudit({
+    userId: session.userId,
+    action: "category_updated",
+    entityType: "category",
+    entityId: categoryId,
+    metadata: updateData,
+  });
+
+  return { success: true, message: "Category updated", data: null };
+}
+
+// ─── Delete Category (soft) ───────────────────────────────────────────────────
+
+export async function deleteCategory(categoryId: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!session) return { success: false, message: "Not authenticated", data: null };
+  if (session.role !== "super_admin") return { success: false, message: "Unauthorized", data: null };
+
+  const supabase = createServerClient();
+
+  // Soft delete the category
+  const { error } = await supabase
+    .from("categories")
+    .update({ deleted_at: new Date().toISOString(), deleted_by: session.userId })
+    .eq("id", categoryId);
+
+  if (error) return { success: false, message: error.message, data: null };
+
+  // Also soft delete all questions in this category
+  await supabase
+    .from("questions")
+    .update({ deleted_at: new Date().toISOString(), deleted_by: session.userId })
+    .eq("category_id", categoryId);
+
+  return { success: true, message: "Category deleted", data: null };
 }

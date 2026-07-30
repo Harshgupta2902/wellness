@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -13,8 +14,28 @@ import {
   Lock,
   Zap,
 } from "lucide-react";
+import { getSession } from "@/actions/auth";
+import type { UserRole } from "@/lib/supabase/types";
+
+const ROLE_DASHBOARD: Record<UserRole, string> = {
+  super_admin: "/admin",
+  org_admin: "/dashboard/hr",
+  employee: "/dashboard/employee",
+};
 
 export default function HomePage() {
+  const [dashboardLink, setDashboardLink] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function check() {
+      const session = await getSession();
+      if (session) {
+        setDashboardLink(ROLE_DASHBOARD[session.role] || "/");
+      }
+    }
+    check();
+  }, []);
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -31,9 +52,15 @@ export default function HomePage() {
             <Link href="/dashboard/employee" className="text-[#5b7a80] hover:text-[#022932] font-medium transition-colors text-sm">
               My Dashboard
             </Link>
-            <Link href="/login" className="btn-primary text-sm !py-2 !px-5">
-              Sign In
-            </Link>
+            {dashboardLink ? (
+              <Link href={dashboardLink} className="btn-primary text-sm !py-2 !px-5">
+                Go to Dashboard
+              </Link>
+            ) : (
+              <Link href="/login" className="btn-primary text-sm !py-2 !px-5">
+                Sign In
+              </Link>
+            )}
           </nav>
         </div>
       </header>
