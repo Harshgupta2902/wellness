@@ -3,6 +3,12 @@
 -- ============================================================
 -- Run this file to create the entire database from scratch.
 -- Last Updated: 2026-07-30
+--
+-- STEPS:
+-- 1. Run this file in Supabase SQL Editor
+-- 2. Run seed_assessment.sql
+-- 3. Go to /setup on the website to create Super Admin
+-- 4. Login with admin@manovyatha.com / Wellness@12345
 -- ============================================================
 
 -- Enable required extensions
@@ -43,7 +49,6 @@ CREATE TYPE audit_action AS ENUM (
 -- TABLES
 -- ============================================================
 
--- Organizations
 CREATE TABLE organizations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
@@ -56,7 +61,6 @@ CREATE TABLE organizations (
   deleted_by UUID
 );
 
--- Users (all roles in one table, role-based access)
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   email TEXT NOT NULL UNIQUE,
@@ -71,7 +75,6 @@ CREATE TABLE users (
   deleted_by UUID
 );
 
--- Employees (extended profile with encrypted PII)
 CREATE TABLE employees (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id),
@@ -90,7 +93,6 @@ CREATE TABLE employees (
   deleted_by UUID
 );
 
--- Assessment Templates
 CREATE TABLE assessment_templates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
@@ -102,7 +104,6 @@ CREATE TABLE assessment_templates (
   deleted_by UUID
 );
 
--- Assessment Versions (immutable once published)
 CREATE TABLE assessment_versions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   template_id UUID NOT NULL REFERENCES assessment_templates(id),
@@ -117,12 +118,11 @@ CREATE TABLE assessment_versions (
   UNIQUE(template_id, version_number)
 );
 
--- Categories
 CREATE TABLE categories (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   version_id UUID NOT NULL REFERENCES assessment_versions(id),
   name TEXT NOT NULL,
-  weight DECIMAL(5,4) NOT NULL DEFAULT 0.0, -- e.g., 0.25 for 25%
+  weight DECIMAL(5,4) NOT NULL DEFAULT 0.0,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -130,7 +130,6 @@ CREATE TABLE categories (
   deleted_by UUID
 );
 
--- Questions
 CREATE TABLE questions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   category_id UUID NOT NULL REFERENCES categories(id),
@@ -141,9 +140,8 @@ CREATE TABLE questions (
   is_required BOOLEAN NOT NULL DEFAULT true,
   is_reverse_scored BOOLEAN NOT NULL DEFAULT false,
   sort_order INTEGER NOT NULL DEFAULT 0,
-  -- Conditional logic
   condition_question_id UUID REFERENCES questions(id),
-  condition_operator TEXT, -- '==', '!=', '>', '<', '>=', '<='
+  condition_operator TEXT,
   condition_value TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -151,7 +149,6 @@ CREATE TABLE questions (
   deleted_by UUID
 );
 
--- Question Options (dynamic per question type)
 CREATE TABLE question_options (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   question_id UUID NOT NULL REFERENCES questions(id),
@@ -161,7 +158,6 @@ CREATE TABLE question_options (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Personal Information Fields (dynamic builder)
 CREATE TABLE personal_info_fields (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   version_id UUID NOT NULL REFERENCES assessment_versions(id),
@@ -170,7 +166,7 @@ CREATE TABLE personal_info_fields (
   field_type personal_field_type NOT NULL DEFAULT 'text',
   is_required BOOLEAN NOT NULL DEFAULT false,
   is_encrypted BOOLEAN NOT NULL DEFAULT true,
-  options JSONB, -- for select/radio types
+  options JSONB,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -178,7 +174,6 @@ CREATE TABLE personal_info_fields (
   deleted_by UUID
 );
 
--- Assessments (submitted by employees)
 CREATE TABLE assessments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   employee_id UUID NOT NULL REFERENCES employees(id),
@@ -192,18 +187,16 @@ CREATE TABLE assessments (
   deleted_by UUID
 );
 
--- Assessment Answers
 CREATE TABLE assessment_answers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   assessment_id UUID NOT NULL REFERENCES assessments(id),
   question_id UUID NOT NULL REFERENCES questions(id),
-  answer_value INTEGER, -- numeric answer
-  answer_text TEXT, -- text/open-ended answer
+  answer_value INTEGER,
+  answer_text TEXT,
   calculated_score DECIMAL(5,2),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Assessment Personal Info Responses
 CREATE TABLE assessment_personal_info (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   assessment_id UUID NOT NULL REFERENCES assessments(id),
@@ -212,7 +205,6 @@ CREATE TABLE assessment_personal_info (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- AI Analysis Results
 CREATE TABLE ai_analyses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   assessment_id UUID NOT NULL REFERENCES assessments(id),
@@ -225,12 +217,11 @@ CREATE TABLE ai_analyses (
   risk_flags JSONB DEFAULT '[]'::jsonb,
   manager_relationship TEXT,
   culture_feedback TEXT,
-  raw_response JSONB, -- store full Gemini response
+  raw_response JSONB,
   generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Audit Logs
 CREATE TABLE audit_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id),
@@ -274,7 +265,6 @@ CREATE INDEX idx_audit_logs_created ON audit_logs(created_at);
 -- FUNCTIONS
 -- ============================================================
 
--- Auto-update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -283,7 +273,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Get next version number for a template
 CREATE OR REPLACE FUNCTION get_next_version_number(p_template_id UUID)
 RETURNS INTEGER AS $$
 DECLARE
@@ -296,7 +285,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Check if employee can retake assessment (15 day rule)
 CREATE OR REPLACE FUNCTION can_retake_assessment(p_employee_id UUID, p_version_id UUID)
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -321,39 +309,35 @@ $$ LANGUAGE plpgsql;
 -- ============================================================
 
 CREATE TRIGGER trg_organizations_updated_at
-  BEFORE UPDATE ON organizations
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_users_updated_at
-  BEFORE UPDATE ON users
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_employees_updated_at
-  BEFORE UPDATE ON employees
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  BEFORE UPDATE ON employees FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_assessment_templates_updated_at
-  BEFORE UPDATE ON assessment_templates
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  BEFORE UPDATE ON assessment_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_assessment_versions_updated_at
-  BEFORE UPDATE ON assessment_versions
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  BEFORE UPDATE ON assessment_versions FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_categories_updated_at
-  BEFORE UPDATE ON categories
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  BEFORE UPDATE ON categories FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_questions_updated_at
-  BEFORE UPDATE ON questions
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  BEFORE UPDATE ON questions FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 CREATE TRIGGER trg_personal_info_fields_updated_at
-  BEFORE UPDATE ON personal_info_fields
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  BEFORE UPDATE ON personal_info_fields FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================
--- ROW LEVEL SECURITY (RLS)
+-- ROW LEVEL SECURITY - DISABLED FOR MVP
+-- ============================================================
+-- We handle auth in the app layer using session tokens.
+-- RLS is disabled so the anon key can perform all operations.
+-- When migrating to Supabase Auth, re-enable RLS with proper policies.
 -- ============================================================
 
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
@@ -371,189 +355,36 @@ ALTER TABLE assessment_personal_info ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_analyses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
--- Super Admin: full access to everything
-CREATE POLICY super_admin_all_organizations ON organizations
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_users ON users
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_employees ON employees
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_templates ON assessment_templates
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_versions ON assessment_versions
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_categories ON categories
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_questions ON questions
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_options ON question_options
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_personal_fields ON personal_info_fields
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_assessments ON assessments
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_answers ON assessment_answers
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_personal_info ON assessment_personal_info
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_ai ON ai_analyses
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
-CREATE POLICY super_admin_all_audit ON audit_logs
-  FOR ALL TO authenticated
-  USING (
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'super_admin')
-  );
-
--- Org Admin: access own organization data
-CREATE POLICY org_admin_own_org ON organizations
-  FOR SELECT TO authenticated
-  USING (
-    id IN (SELECT organization_id FROM users WHERE users.id = auth.uid() AND users.role = 'org_admin')
-  );
-
-CREATE POLICY org_admin_own_employees ON employees
-  FOR SELECT TO authenticated
-  USING (
-    organization_id IN (SELECT organization_id FROM users WHERE users.id = auth.uid() AND users.role = 'org_admin')
-  );
-
-CREATE POLICY org_admin_own_assessments ON assessments
-  FOR SELECT TO authenticated
-  USING (
-    organization_id IN (SELECT organization_id FROM users WHERE users.id = auth.uid() AND users.role = 'org_admin')
-  );
-
--- Employee: access own data
-CREATE POLICY employee_own_data ON employees
-  FOR SELECT TO authenticated
-  USING (user_id = auth.uid());
-
-CREATE POLICY employee_own_assessments ON assessments
-  FOR ALL TO authenticated
-  USING (
-    employee_id IN (SELECT id FROM employees WHERE user_id = auth.uid())
-  );
-
-CREATE POLICY employee_own_answers ON assessment_answers
-  FOR ALL TO authenticated
-  USING (
-    assessment_id IN (
-      SELECT a.id FROM assessments a
-      JOIN employees e ON a.employee_id = e.id
-      WHERE e.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY employee_own_ai ON ai_analyses
-  FOR SELECT TO authenticated
-  USING (
-    assessment_id IN (
-      SELECT a.id FROM assessments a
-      JOIN employees e ON a.employee_id = e.id
-      WHERE e.user_id = auth.uid()
-    )
-  );
-
--- Published assessment content is readable by all authenticated users
-CREATE POLICY read_published_versions ON assessment_versions
-  FOR SELECT TO authenticated
-  USING (status = 'published');
-
-CREATE POLICY read_published_categories ON categories
-  FOR SELECT TO authenticated
-  USING (
-    version_id IN (SELECT id FROM assessment_versions WHERE status = 'published')
-  );
-
-CREATE POLICY read_published_questions ON questions
-  FOR SELECT TO authenticated
-  USING (
-    version_id IN (SELECT id FROM assessment_versions WHERE status = 'published')
-  );
-
-CREATE POLICY read_published_options ON question_options
-  FOR SELECT TO authenticated
-  USING (
-    question_id IN (
-      SELECT q.id FROM questions q
-      JOIN assessment_versions v ON q.version_id = v.id
-      WHERE v.status = 'published'
-    )
-  );
-
-CREATE POLICY read_published_personal_fields ON personal_info_fields
-  FOR SELECT TO authenticated
-  USING (
-    version_id IN (SELECT id FROM assessment_versions WHERE status = 'published')
-  );
+-- Allow anon (our app) full access to all tables
+-- Auth is handled at the application layer via session cookies
+CREATE POLICY anon_full_access_organizations ON organizations FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_users ON users FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_employees ON employees FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_templates ON assessment_templates FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_versions ON assessment_versions FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_categories ON categories FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_questions ON questions FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_options ON question_options FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_personal_fields ON personal_info_fields FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_assessments ON assessments FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_answers ON assessment_answers FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_personal_info ON assessment_personal_info FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_ai ON ai_analyses FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY anon_full_access_audit ON audit_logs FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- ============================================================
--- SEED DATA
+-- GRANTS - Allow anon role to access tables
 -- ============================================================
 
--- Create Super Admin user (password: Wellness@12345)
--- Note: In production, use Supabase Auth. This is for MVP with master password.
-INSERT INTO users (id, email, password_hash, role, is_active)
-VALUES (
-  '00000000-0000-0000-0000-000000000001',
-  'admin@manovyatha.com',
-  crypt('mano@manovyatha#', gen_salt('bf')),
-  'super_admin',
-  true
-);
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO anon;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon;
 
 -- ============================================================
 -- END OF SCHEMA
+-- ============================================================
+-- NEXT STEPS:
+-- 1. Run seed_assessment.sql to add template + questions
+-- 2. Visit /setup to create the Super Admin account
+-- 3. Login at /login with admin@manovyatha.com / Wellness@12345
 -- ============================================================
