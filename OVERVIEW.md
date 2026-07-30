@@ -1,257 +1,844 @@
-# Manovyatha — Employee Wellness & Psychological Assessment Platform
+# Manovyatha - Development Roadmap
 
-## Overview
-
-Manovyatha is an AI-powered employee wellness assessment platform built with **Next.js 16**, **React 19**, **TypeScript**, **Tailwind CSS 4**, and **Chart.js**. It enables organizations to assess, monitor, and improve employee mental health and workplace wellbeing through confidential, clinically-weighted questionnaires, automated scoring, AI-driven insights, and aggregated HR analytics.
-
-The name "Manovyatha" (मनोव्यथा) draws from Sanskrit, relating to the mind and its wellness.
+> Last Updated: 2026-07-30
 
 ---
 
-## Tech Stack
+# Project Status
 
-| Layer        | Technology                        |
-|--------------|-----------------------------------|
-| Framework    | Next.js 16 (App Router)           |
-| UI Library   | React 19                          |
-| Language     | TypeScript 5                      |
-| Styling      | Tailwind CSS 4 + PostCSS          |
-| Charts       | Chart.js + react-chartjs-2        |
-| Icons        | Lucide React                      |
-| Persistence  | Browser localStorage              |
-| Linting      | ESLint 9 + eslint-config-next     |
+## Current State
+
+- ✅ Next.js Frontend
+- ✅ Assessment UI
+- ✅ Employee Dashboard
+- ✅ HR Dashboard
+- ✅ Local Storage
+- ✅ Static Questions
+- ✅ Static Scoring
+- ❌ Authentication
+- ❌ Database
+- ❌ AI Integration
+- ❌ Dynamic Assessment Builder
+- ❌ Organizations
+- ❌ Users
+- ❌ Encryption
+- ❌ Notifications
 
 ---
 
-## Project Structure
+# Tech Stack
+
+Frontend
+- Next.js 16
+- React 19
+- TypeScript
+- TailwindCSS
+
+Backend
+- Next.js API Routes
+
+Database
+- Supabase PostgreSQL
+
+Authentication (MVP)
+- Email
+- Master Password
+
+AI
+- Google Gemini API
+
+Charts
+- Chart.js
+
+Email
+- Resend / SMTP
+
+Encryption
+- AES-256
+
+---
+
+# User Hierarchy
 
 ```
-src/
-├── app/
-│   ├── page.tsx                      # Landing / Home page
-│   ├── layout.tsx                    # Root layout with metadata
-│   ├── globals.css                   # Global styles & Tailwind
-│   ├── assessment/
-│   │   └── page.tsx                  # Multi-step assessment wizard
-│   └── dashboard/
-│       ├── employee/
-│       │   └── page.tsx              # Individual employee wellness report
-│       └── hr/
-│           └── page.tsx              # Aggregated HR analytics dashboard
-├── data/
-│   ├── questions.ts                  # Question bank, categories, weights
-│   └── mock-data.ts                  # Sample employees, scores, AI analyses
-└── lib/
-    ├── scoring.ts                    # Scoring engine (weighted, per-category)
-    └── storage.ts                    # localStorage persistence layer
+Super Admin
+│
+├── Organizations
+│      │
+│      ├── Organization Admin
+│      │
+│      └── Employees
 ```
 
 ---
 
-## Core Features
+# Roles
 
-### 1. Landing Page (`/`)
+## Super Admin
 
-- Brand introduction and platform overview
-- Explains the three-step flow: Assessment → AI Analysis → Actionable Insights
-- Displays all 6 assessment categories with their scoring weights
-- Privacy & confidentiality assurance section
-- Navigation to Assessment, Employee Dashboard, and HR Dashboard
+Can
 
----
-
-### 2. Wellness Assessment (`/assessment`)
-
-A multi-step wizard that walks employees through a full psychological assessment.
-
-#### Steps:
-1. **Personal Information** — Name, email, age, department, designation, experience, work mode (Remote / Hybrid / On-site)
-2. **Likert-Scale Questions** — 46 questions across 6 categories, answered on a 5-point scale (Strongly Disagree → Strongly Agree)
-3. **Open-Ended Questions** — 4 free-text questions for qualitative AI analysis
-4. **Results** — Instant scoring with overall score, risk level, and category breakdown
-
-#### Assessment Categories & Weights:
-
-| Category            | Weight | Questions | Description                                              |
-|---------------------|--------|-----------|----------------------------------------------------------|
-| Mental Wellbeing    | 25%    | 8         | Emotional health, sleep, optimism, stress management     |
-| Burnout             | 20%    | 8         | Exhaustion, detachment, concentration (reverse-scored)   |
-| Workplace Culture   | 20%    | 8         | Manager support, transparency, psychological safety      |
-| Job Satisfaction    | 15%    | 10        | Purpose, recognition, motivation, career growth          |
-| Resilience          | 10%    | 6         | Adaptability, recovery from setbacks, calm under pressure|
-| Work-Life Balance   | 10%    | 6         | Disconnect ability, personal time, boundaries            |
-
-#### Scoring Logic:
-- Each question scored 1–5 on a Likert scale
-- Burnout questions are **reverse-scored** (higher agreement = lower wellness)
-- Category percentage = (total score / max possible score) × 100
-- Overall score = weighted sum of all category percentages
-- Risk levels: Critical (<50), High Risk (50–64), Moderate (65–79), Healthy (80–89), Excellent (90–100)
-
-#### Open-Ended Questions:
-1. "What motivates you at work?"
-2. "What stresses you the most?"
-3. "What would improve your workplace?"
-4. "Describe how you've been feeling recently."
-
-These are designed for future AI/NLP sentiment analysis.
+- Manage Organizations
+- Manage Assessment Templates
+- Publish Assessments
+- Create Versions
+- Manage Categories
+- Manage Questions
+- Manage Question Types
+- Manage Personal Fields
+- View Every Organization
+- View Every Assessment
+- View AI Insights
+- View Audit Logs
 
 ---
 
-### 3. Employee Dashboard (`/dashboard/employee`)
+## Organization Admin
 
-A personal wellness report for the individual employee.
+Can
 
-#### Features:
-- Welcome banner with employee name, designation, department, and last assessment date
-- **Overall wellness score** prominently displayed
-- **6 category score cards** with color-coded indicators
-- **Radar chart** showing wellness profile across all categories
-- **Bar-style progress indicators** for each category
-- **AI Insights panel** showing:
-  - Stress level score
-  - Burnout risk level
-  - Sentiment score
-  - Manager relationship assessment
-- **Strengths** — positive areas identified
-- **Concerns** — areas needing attention
-- **Recommendations** — personalized action items
-- **Risk flags** — critical indicators
-- **Risk level scale** with visual indicator
-- Falls back to mock data if no real assessment has been completed
+- View only own Organization
+- Invite Employees
+- View Dashboard
+- View Statistics
+- Receive Critical Alerts
+
+Only one active Organization Admin per organization.
 
 ---
 
-### 4. HR Dashboard (`/dashboard/hr`)
+## Employee
 
-An aggregated, anonymized analytics view for HR professionals.
+Can
 
-#### Features:
-- **KPI Cards**: Average wellness, burnout score, high-risk employee count, average engagement
-- **Department bar chart**: Comparing wellness and burnout scores across departments
-- **Wellness trend line chart**: Monthly wellness score tracking
-- **Risk level doughnut chart**: Distribution of employees across risk categories
-- **Top workplace issues**: Ranked list of organizational concerns with percentages
-- **Department heatmap**: Color-coded wellness/burnout/culture/work-life scores per department
-- **Department risk summary table**: Employees, avg score, at-risk count, status
-- **All assessments table**: Individual records with name, department, score, risk level, date
-- **Empty state**: Helpful prompt if no assessments exist yet
-
-#### Privacy Controls:
-- No individual clinical data exposed without consent
-- Only department-level aggregates shown
-- Privacy notice displayed prominently
+- Take Assessment
+- Login
+- View Previous Assessments
+- View AI Recommendations
+- Retake Assessment after 15 days
 
 ---
 
-## Data Persistence
+# Authentication
 
-All assessment data is stored in the browser's **localStorage** under the key `manovyatha_assessments`.
+Current MVP
 
-### Storage API (`src/lib/storage.ts`):
-- `saveAssessment(assessment)` — Appends a completed assessment
-- `getAssessments()` — Retrieves all saved assessments
-- `getLatestAssessment()` — Gets the most recent assessment
-- `clearAssessments()` — Removes all stored data
+Email
 
-### Saved Data Structure:
-```typescript
+Master Password
+
+```
+Wellness@12345
+```
+
+Future
+
+Supabase Auth
+
+---
+
+# Database Rules
+
+## IMPORTANT
+
+There will always be TWO SQL files.
+
+```
+supabase_setup.sql
+updates.sql
+```
+
+---
+
+## supabase_setup.sql
+
+Contains COMPLETE database schema.
+
+Whenever a new developer creates a project from scratch,
+
+running this file should completely recreate the database.
+
+This file MUST always contain
+
+- Tables
+- Indexes
+- Constraints
+- Triggers
+- Views
+- Functions
+- Policies
+- Seed Data (if required)
+
+Think of this as
+
+```
+Master Database File
+```
+
+---
+
+## updates.sql
+
+Contains ONLY incremental changes.
+
+Example
+
+```
+ALTER TABLE employees
+ADD COLUMN phone TEXT;
+```
+
+After this change has been applied successfully,
+
+1. Merge this change into
+
+```
+supabase_setup.sql
+```
+
+2. Empty
+
+```
+updates.sql
+```
+
+3. Future changes will be added here.
+
+Meaning
+
+```
+updates.sql
+
+always contains ONLY the current migration.
+```
+
+Never keep historical SQL here.
+
+---
+
+# Database Design
+
+## Organizations
+
+- id
+- name
+- industry
+- employee_count
+- status
+- created_at
+
+---
+
+## Organization Admin
+
+- id
+- organization_id
+- email
+- active
+
+Only one admin per organization.
+
+---
+
+## Employees
+
+Store
+
+- Organization
+- Email
+- Encrypted Personal Information
+- Status
+
+Personal Information
+
+- Name
+- Age
+- Gender
+- Phone
+- Department
+- Designation
+- Employee ID
+
+All encrypted.
+
+---
+
+## Assessment Templates
+
+Examples
+
+- Monthly
+- Quarterly
+- Exit Survey
+
+Managed ONLY by Super Admin.
+
+---
+
+## Assessment Versions
+
+Every edit
+
+↓
+
+Creates New Version
+
+No edits on published versions.
+
+---
+
+## Categories
+
+Managed by Super Admin
+
+Fields
+
+- Name
+- Weight
+- Order
+
+---
+
+## Questions
+
+Fields
+
+- Category
+- Type
+- Weight
+- Required
+- Reverse Score
+- Condition
+- Order
+
+---
+
+## Options
+
+Dynamic
+
+Supports
+
+- Likert
+- Stars
+- Numeric
+- Yes/No
+- Slider
+- NPS
+
+---
+
+## Personal Information Fields
+
+Dynamic Builder
+
+Examples
+
+- Name
+- Age
+- Employee ID
+- Joining Date
+- Manager
+
+Everything configurable.
+
+---
+
+## Assessments
+
+Stores
+
+- Employee
+- Organization
+- Version
+- Score
+- Risk
+- Submitted Date
+
+---
+
+## Answers
+
+Stores
+
+Every answer
+
+with calculated score.
+
+---
+
+## AI Analysis
+
+Stores
+
+- Stress
+- Burnout
+- Sentiment
+- Strengths
+- Concerns
+- Recommendations
+- Risk Flags
+
+Store raw Gemini response.
+
+---
+
+## Audit Logs
+
+Track EVERYTHING.
+
+Examples
+
+- Login
+- Invite Sent
+- Question Created
+- Assessment Published
+- Organization Created
+- AI Generated
+- Email Sent
+
+---
+
+# Assessment Rules
+
+## Assessment Builder
+
+Super Admin can
+
+Create Assessment
+
+↓
+
+Create Categories
+
+↓
+
+Assign Category Weight
+
+↓
+
+Create Questions
+
+↓
+
+Assign Question Weight
+
+↓
+
+Assign Question Type
+
+↓
+
+Assign Options
+
+↓
+
+Assign Conditions
+
+↓
+
+Publish Version
+
+---
+
+Published versions
+
+Cannot be edited.
+
+Any edit
+
+↓
+
+Creates Version +1
+
+---
+
+# Question Types
+
+Supported
+
+- Likert (1-5)
+- Stars
+- Numeric Rating
+- Yes / No
+- Slider
+- NPS
+
+---
+
+# Conditional Questions
+
+Supported
+
+Example
+
+```
+IF
+
+Question 15 == Yes
+
+↓
+
+Show Question 16
+
+Else
+
+Hide
+```
+
+---
+
+# Scoring
+
+Category Weight
+
+Example
+
+Mental Health
+
+30%
+
+Questions inside category
+
+Question A
+
+20%
+
+Question B
+
+30%
+
+Question C
+
+50%
+
+Category Score
+
+↓
+
+Weighted Score
+
+↓
+
+Overall Score
+
+---
+
+# AI
+
+Provider
+
+Google Gemini
+
+Input
+
+Entire Assessment
+
+Output
+
+JSON
+
+Contains
+
+- Sentiment
+- Stress
+- Burnout
+- Manager Feedback
+- Employee Recommendation
+- Organization Recommendation
+- Risk Flags
+
+---
+
+# Notifications
+
+Send Email
+
+Employee
+
+- Assessment Complete
+
+Organization Admin
+
+- Critical Risk
+- Assessment Submitted
+
+---
+
+# Dashboard
+
+## Super Admin
+
+- Organizations
+- Employees
+- Assessments
+- Risk
+- AI
+- Statistics
+
+---
+
+## Organization
+
+- Wellness
+- Burnout
+- Department
+- Gender
+- Age
+- Experience
+- Monthly Trends
+- Risk Distribution
+
+---
+
+## Employee
+
+- History
+- Current Score
+- AI Recommendations
+- Charts
+- Retake Date
+
+---
+
+# Retake Rules
+
+Employee
+
+↓
+
+Submits Assessment
+
+↓
+
+Assessment Locked
+
+↓
+
+Can View Only
+
+↓
+
+15 Days
+
+↓
+
+Retake Enabled
+
+---
+
+# Encryption
+
+Encrypt
+
+- Name
+- Email
+- Phone
+- Gender
+- Age
+- Employee ID
+
+Do NOT encrypt
+
+- Scores
+- Category IDs
+- Question IDs
+- Organization IDs
+
+Reason
+
+Allows reporting and analytics.
+
+---
+
+# Soft Delete
+
+Every table should contain
+
+- deleted_at
+- deleted_by
+
+Never permanently delete records.
+
+---
+
+# Multi-language
+
+Future Ready
+
+Languages
+
+- English
+- Hindi
+- Gujarati
+- Marathi
+
+---
+
+# Development Phases
+
+## Phase 1 (Current)
+
+- [ ] Setup Supabase
+- [ ] Create Database
+- [ ] Create SQL Files
+- [ ] Setup RLS
+- [ ] Setup Encryption Helpers
+- [ ] Setup API
+
+---
+
+## Phase 2
+
+- [ ] Organization CRUD
+- [ ] Organization Dashboard
+- [ ] Invite Employee
+- [ ] Employee Registration
+
+---
+
+## Phase 3
+
+- [ ] Dynamic Assessment Builder
+- [ ] Categories
+- [ ] Questions
+- [ ] Conditional Logic
+- [ ] Versioning
+- [ ] Publish Workflow
+
+---
+
+## Phase 4
+
+- [ ] Assessment Submission
+- [ ] Store Responses
+- [ ] Scoring Engine
+- [ ] AI Integration
+
+---
+
+## Phase 5
+
+- [ ] Employee Dashboard
+- [ ] Organization Dashboard
+- [ ] Notifications
+- [ ] Audit Logs
+
+---
+
+# Development Rules
+
+## Rule 1
+
+Never hardcode
+
+Questions
+
+Categories
+
+Weights
+
+Personal Information
+
+Everything must come from the database.
+
+---
+
+## Rule 2
+
+Never modify a published assessment.
+
+Always create a new version.
+
+---
+
+## Rule 3
+
+Never directly alter production schema.
+
+Always
+
+1. Update `updates.sql`
+2. Test migration
+3. Merge into `supabase_setup.sql`
+4. Clear `updates.sql`
+
+---
+
+## Rule 4
+
+Always use transactions for database updates affecting multiple tables.
+
+---
+
+## Rule 5
+
+All API responses should follow
+
+```
 {
-  id: string;                    // Unique assessment ID
-  personalInfo: {                // Employee details
-    name, email, age, department, designation, experience, workMode
-  };
-  answers: Record<number, number>;     // Question ID → Likert value (1-5)
-  textAnswers: Record<number, string>; // Question ID → free text response
-  scores: {
-    overallScore: number;
-    riskLevel: string;
-    categoryScores: { category: string; percentage: number }[];
-  };
-  submittedAt: string;           // ISO date string
+  success: boolean,
+  message: string,
+  data: {}
 }
 ```
 
 ---
 
-## Mock Data
+## Rule 6
 
-The platform includes realistic mock data (`src/data/mock-data.ts`) for demonstration:
+Store only encrypted PII.
 
-- **1 company**: TechVista Solutions (250 employees, India, Technology)
-- **10 sample employees** across Engineering, Design, Marketing, HR, and Sales
-- **10 assessment results** spanning all risk levels (Critical to Excellent)
-- **5 detailed AI analyses** including strengths, concerns, recommendations, and risk flags
-- **Historical trend data** (7 months)
-- **Department-level metrics** for 5 departments
+Decryption must happen only on the server.
+
+Never expose encryption keys to the client.
 
 ---
 
-## UI/UX Design
+# Immediate Next Tasks
 
-- Clean, modern interface with card-based layouts
-- Color-coded scoring (green → amber → orange → red) for instant comprehension
-- Responsive design (mobile-friendly grid layouts)
-- Smooth transitions and hover effects
-- Progress bar during assessment
-- Sticky navigation headers
-- Gradient hero sections
-- Accessible form controls with proper labels
+Priority 1
 
----
+- [ ] Setup Supabase Project
+- [ ] Create `supabase_setup.sql`
+- [ ] Create `updates.sql`
+- [ ] Configure RLS
+- [ ] Create encryption utilities
+- [ ] Replace localStorage with Supabase
 
-## Risk Classification System
+Priority 2
 
-| Level      | Score Range | Color  | Action                          |
-|------------|-------------|--------|---------------------------------|
-| Excellent  | 90–100      | Green  | Maintain current practices      |
-| Healthy    | 80–89       | Green  | Continue with minor improvements|
-| Moderate   | 65–79       | Amber  | Monitor and support             |
-| High Risk  | 50–64       | Orange | Intervention recommended        |
-| Critical   | < 50        | Red    | Urgent clinical review required |
+- [ ] Organizations
+- [ ] Organization Admin
+- [ ] Employees
+- [ ] Invites
 
----
+Priority 3
 
-## Future Enhancements (Architecture Ready)
+- [ ] Assessment Builder
+- [ ] Versioning
+- [ ] Dynamic Questions
 
-- **AI/NLP Integration**: Open-ended responses structured for sentiment analysis
-- **Backend API**: Storage layer abstracted for easy swap to database
-- **Authentication**: Role-based access (employee vs HR) ready to implement
-- **Real-time Notifications**: Risk flag alerts for HR
-- **Longitudinal Tracking**: Compare assessments over time per employee
-- **Export/Reporting**: PDF reports, CSV exports
-- **Multi-company Support**: Data model includes company entity
+Priority 4
+
+- [ ] AI
+- [ ] Notifications
+- [ ] Dashboards
 
 ---
 
-## Running the Project
+# Definition of Done
 
-```bash
-# Install dependencies
-npm install
+The project is considered MVP complete when:
 
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-
-# Run linting
-npm run lint
-```
-
-The app runs on `http://localhost:3000` by default.
-
----
-
-## Key Design Decisions
-
-1. **Client-side only**: No backend required — localStorage keeps it simple and private
-2. **Weighted scoring**: Clinically-informed weights prioritize mental wellbeing and burnout
-3. **Reverse scoring**: Burnout questions use inverse scoring for accurate measurement
-4. **Privacy-first**: HR dashboard never exposes individual clinical details
-5. **Progressive disclosure**: Assessment broken into category-by-category steps to reduce overwhelm
-6. **Hydration safety**: Dashboard pages handle SSR/client mismatch with mounted state guards
+- Organizations can be managed by Super Admin.
+- One Organization Admin exists per organization.
+- Employees can be invited or auto-created.
+- Assessments are fully database-driven.
+- Assessment versioning is immutable.
+- PII is encrypted at rest.
+- Responses are stored in Supabase.
+- AI analysis is generated using Gemini.
+- Organization dashboards display aggregated insights.
+- Employees can securely view their own results.
+- Every schema change follows the `updates.sql` → `supabase_setup.sql` workflow.
